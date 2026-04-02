@@ -1,5 +1,3 @@
-import type React from 'react'
-
 export interface Camera {
   x: number
   y: number
@@ -27,13 +25,13 @@ export interface UniverseCore<T extends Record<string, unknown> = Record<string,
   selectedId: string | null
   setGroupBy: (fn: ((item: UniverseItem<T>) => string) | null) => void
   canvasHandlers: {
-    onPointerDown: (e: React.PointerEvent<HTMLCanvasElement>) => void
-    onPointerMove: (e: React.PointerEvent<HTMLCanvasElement>) => void
-    onPointerUp: (e: React.PointerEvent<HTMLCanvasElement>) => void
-    onWheel: (e: React.WheelEvent<HTMLCanvasElement>) => void
-    onTouchStart: (e: React.TouchEvent<HTMLCanvasElement>) => void
-    onTouchMove: (e: React.TouchEvent<HTMLCanvasElement>) => void
-    onTouchEnd: (e: React.TouchEvent<HTMLCanvasElement>) => void
-    onDoubleClick: (e: React.MouseEvent<HTMLCanvasElement>) => void
+    onPointerDown: (e: PointerEvent) => void
+    onPointerMove: (e: PointerEvent) => void
+    onPointerUp: (e: PointerEvent) => void
+    onWheel: (e: WheelEvent) => void
+    onTouchStart: (e: TouchEvent) => void
+    onTouchMove: (e: TouchEvent) => void
+    onTouchEnd: (e: TouchEvent) => void
+    onDoubleClick: (e: MouseEvent) => void
   }
 }
