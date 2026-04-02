@@ -20,8 +20,9 @@ describe('projectItem', () => {
     const camera = { x: 0, y: 0, z: 0 }
     const item = makeItem(0, 0, FOCAL_LENGTH)
     const result = projectItem(item, camera, 800, 600, 50)
-    expect(result.screenX).toBeCloseTo(400)
-    expect(result.screenY).toBeCloseTo(300)
+    expect(result).not.toBeNull()
+    expect(result!.screenX).toBeCloseTo(400)
+    expect(result!.screenY).toBeCloseTo(300)
   })
 
   it('returns null when item is behind the camera', () => {
@@ -35,6 +36,8 @@ describe('projectItem', () => {
     const camera = { x: 0, y: 0, z: 0 }
     const near = projectItem(makeItem(0, 0, 100), camera, 800, 600, 50)
     const far = projectItem(makeItem(0, 0, 400), camera, 800, 600, 50)
+    expect(near).not.toBeNull()
+    expect(far).not.toBeNull()
     expect(near!.screenSize).toBeGreaterThan(far!.screenSize)
   })
 })
@@ -74,5 +77,18 @@ describe('zoomCamera', () => {
     const camera = { x: 0, y: 0, z: 900 }
     const result = zoomCamera(camera, -10000, 400, 300, 800, 600, 1000)
     expect(result.z).toBeLessThanOrEqual(950) // 1000 - 50 buffer
+  })
+
+  it('shifts camera x/y to keep cursor world point fixed when cursor is off-center', () => {
+    const camera = { x: 0, y: 0, z: 0 }
+    // cursor at (600, 200) — off-center on an 800x600 canvas
+    const result = zoomCamera(camera, -100, 600, 200, 800, 600, 2000)
+    // cursor-centering must have adjusted x and y
+    expect(result.x).not.toBe(0)
+    expect(result.y).not.toBe(0)
+    // zooming with cursor at canvas center should NOT shift x/y
+    const centered = zoomCamera(camera, -100, 400, 300, 800, 600, 2000)
+    expect(centered.x).toBeCloseTo(0)
+    expect(centered.y).toBeCloseTo(0)
   })
 })
