@@ -8,9 +8,9 @@
 
 ## Overview
 
-A reusable React package for rendering thousands of items in an interactive 2D spatial canvas with depth illusion (via z-based scale/opacity). Items can be scattered freely or animated into clusters grouped by an arbitrary data field. Designed as a headless core + Canvas renderer split so the core can be used independently of the renderer.
+A reusable React package for rendering thousands of items in an interactive **true 3D** spatial canvas. Items exist at real x/y/z world-space coordinates and are projected onto the canvas via perspective projection. The user navigates by panning (x/y) and zooming (moving camera along the z-axis into the scene). Items can be scattered freely or animated into clusters grouped by an arbitrary data field. Designed as a headless core + Canvas renderer split so the core can be used independently of the renderer.
 
-Primary use case: a music playlist where songs are positioned in space, filterable by metadata (genre, movement, artist, etc.), playable on click. Designed to be generic enough for any domain (art, photos, products, etc.).
+Primary use case: a music playlist where songs are positioned in 3D space, filterable by metadata (genre, movement, artist, etc.), playable on click. Designed to be generic enough for any domain (art, photos, products, etc.).
 
 ---
 
@@ -21,7 +21,7 @@ Two layers that never mix:
 ```
 src/
 ├── core/
-│   ├── camera.ts         # camera x/y/zoom state and pan/zoom math
+│   ├── camera.ts         # camera x/y/z state, pan math, zoom math
 │   ├── layout.ts         # scatter positions, cluster center calculation
 │   ├── interaction.ts    # hit-testing (screen-space point-in-item math)
 │   └── index.ts          # exports useUniverseCore hook
@@ -29,11 +29,12 @@ src/
 └── renderer/
     ├── UniverseCanvas.tsx  # <canvas> element, rAF render loop
     ├── draw.ts             # per-item draw logic
-    └── index.ts            # exports <UniverseCanvas>
+    └── index.ts            # exports <UniverseCanvas> and loadImage utility
 ```
 
 **Core** is pure TypeScript — no JSX, no DOM access. It handles:
-- Camera position and transform math
+- Camera position (x/y/z) and perspective projection math
+- Pan (x/y) and zoom (z-axis movement)
 - Layout calculations (scatter, cluster grouping)
 - Hit-testing on pointer/touch events
 - Selected item state
@@ -48,38 +49,48 @@ src/
 ```ts
 interface UniverseItem<T extends Record<string, unknown> = Record<string, unknown>> {
   id: string
-  x: number         // initial scatter position (world space)
+  x: number   // world-space position
   y: number
-  z: number         // depth: affects scale and opacity, unchanged during clustering
-  data: T           // consumer payload — fully generic
+  z: number   // depth in world space — determines perspective size, never animated
+  data: T     // consumer payload — fully generic
 }
 ```
 
-`z` is a static depth value. It is never animated. It controls visual depth illusion (items with higher z appear larger/more opaque). Only `x/y` animate during clustering.
+`z` is a static world-space depth coordinate. It is **never animated**. It determines how large the item appears via perspective projection — items further from the camera (larger relative depth) appear smaller. Only `x/y` animate during clustering.
 
 All items in a given canvas instance share the same `T` type.
 
 ---
 
-## Camera
+## Camera & Projection
 
 ```ts
 interface Camera {
-  x: number     // pan offset (world space)
+  x: number   // world-space position (pan)
   y: number
-  zoom: number  // scale multiplier, clamped (e.g. 0.1–5.0)
+  z: number   // depth position — moving this forward/backward is "zoom"
 }
 ```
 
-Camera transforms are applied to the entire scene. Items do not move — the camera moves around them.
+The camera moves through the 3D scene. Items are stationary in world space; the camera moves around them.
 
-**Screen position formula:**
+**Perspective projection:**
 ```
-screenX = (item.x - camera.x) * camera.zoom + canvasWidth / 2
-screenY = (item.y - camera.y) * camera.zoom + canvasHeight / 2
-scale   = baseScale * camera.zoom * depthScale(item.z)
-opacity = depthOpacity(item.z)
+depth       = item.z - camera.z          // relative depth from camera (must be > 0)
+perspective = focalLength / depth
+screenX     = (item.x - camera.x) * perspective + canvasWidth / 2
+screenY     = (item.y - camera.y) * perspective + canvasHeight / 2
+screenSize  = itemWorldSize * perspective  // rendered size in pixels
 ```
+
+`focalLength` is a fixed constant (e.g. 800) that controls the strength of the perspective effect.
+
+**Camera z limits:**
+- **Min (zoomed out):** a fixed floor, e.g. `camera.z >= -2000`
+- **Max (zoomed in):** `camera.z < deepestItem.z - buffer` where buffer ≈ 50 units — you can never pass through the last item
+- Items where `depth <= 0` (behind the camera) are culled — not drawn
+
+**Cursor-centered zoom:** when scrolling/pinching, the point in world space under the cursor stays fixed on screen. As `camera.z` changes, `camera.x/y` are adjusted to compensate so the cursor's world-space position doesn't shift. This gives the familiar "zoom into where your cursor is" behaviour (same as Google Maps).
 
 ---
 
@@ -87,14 +98,14 @@ opacity = depthOpacity(item.z)
 
 ### Desktop
 - **Drag** → pan (updates `camera.x/y`)
-- **Scroll / trackpad pinch** → zoom (updates `camera.zoom`)
+- **Scroll / trackpad pinch** → zoom (updates `camera.z`), cursor-centered
 - **Click** → hit-test, fire `onItemClick`, set `selectedId`
 - **Double-click** → hit-test, fire `onItemDoubleClick`
 - Click vs drag distinguished by: pointer moved less than 4px AND pointer up within 300ms = click
 
 ### Mobile
 - **One-finger drag** → pan
-- **Two-finger pinch** → zoom (via `touchmove` with two touches)
+- **Two-finger pinch** → zoom (via `touchmove` with two touches), pinch midpoint-centered
 - **Tap** → `onItemClick`
 - **Double-tap** → `onItemDoubleClick` (tracked by tap timing in core, ~300ms threshold)
 - No long-press gesture
@@ -145,12 +156,13 @@ export { loadImage } from './renderer'
 
 ```ts
 interface RenderItem<T> extends UniverseItem<T> {
-  screenX: number
+  screenX: number      // projected screen position
   screenY: number
-  scale: number
-  opacity: number
+  screenSize: number   // world size projected through perspective — use this to draw the item
 }
 ```
+
+No `scale` or `opacity` fields — perspective projection fully determines rendered size. There is no depth-based opacity effect.
 
 ### `useUniverseCore<T>(options)` options:
 
@@ -166,7 +178,7 @@ interface RenderItem<T> extends UniverseItem<T> {
 
 ```ts
 {
-  renderItems: RenderItem<T>[]   // items with computed screenX/Y/scale/opacity
+  renderItems: RenderItem<T>[]   // items visible this frame (culled), sorted back-to-front
   camera: Camera
   selectedId: string | null
   setGroupBy: (fn: ((item: UniverseItem<T>) => string) | null) => void
@@ -177,6 +189,8 @@ interface RenderItem<T> extends UniverseItem<T> {
   }
 }
 ```
+
+Note: `renderItems` is already sorted back-to-front (largest depth first) so the renderer can draw them in order without additional sorting.
 
 ### `<UniverseCanvas<T>>` props:
 
@@ -189,13 +203,14 @@ interface RenderItem<T> extends UniverseItem<T> {
 }
 ```
 
-The `renderItem` prop gives consumers full control over how each item is drawn (image thumbnail, colored dot, icon, etc.).
+The `renderItem` prop gives consumers full control over how each item is drawn (image thumbnail, colored dot, icon, etc.). Use `item.screenX`, `item.screenY`, and `item.screenSize` to position and size the drawing.
 
 ---
 
 ## Performance
 
-- **Viewport culling:** items outside the camera frustum (plus a small buffer) are skipped in the draw loop — only visible items are drawn each frame
+- **Viewport culling:** items behind the camera (`depth <= 0`) or outside the screen bounds are skipped each frame — only visible items are passed to `renderItems`
+- **Back-to-front sort:** `renderItems` is pre-sorted by depth so closer items draw on top of farther items correctly
 - **Image caching:** the package exports a `loadImage(url): HTMLImageElement` utility that pre-fetches and caches images by URL; consumers call this inside their `renderItem` callback to avoid reloading on every frame
 - **rAF loop:** runs only while the canvas is mounted; pauses when no animation is in progress (no clustering, no pointer activity)
 - Target: 60fps with up to 5000 items total, ~200 visible at typical zoom levels
