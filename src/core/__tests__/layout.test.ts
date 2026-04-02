@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest'
 import {
   computeClusterTargets,
   stepAnimation,
+  initAnimationState,
+  updateTargets,
   type AnimationState,
 } from '../layout'
 import type { UniverseItem } from '../types'
@@ -58,5 +60,50 @@ describe('stepAnimation', () => {
     for (let i = 0; i < 60; i++) state = stepAnimation(state)
     expect(state['a'].currentX).toBeCloseTo(100, 0)
     expect(state['a'].currentY).toBeCloseTo(100, 0)
+  })
+})
+
+describe('initAnimationState', () => {
+  it('sets current and target to item x/y', () => {
+    const state = initAnimationState(items)
+    expect(state['a']).toEqual({ currentX: 0, currentY: 0, targetX: 0, targetY: 0 })
+    expect(state['b']).toEqual({ currentX: 50, currentY: 50, targetX: 50, targetY: 50 })
+  })
+})
+
+describe('updateTargets', () => {
+  it('updates targets when groupBy changes', () => {
+    const state = initAnimationState(items)
+    const updated = updateTargets(state, items, (item) => item.data.genre)
+    // targets should now be cluster positions, not original positions
+    expect(updated['a'].targetX).not.toBe(0)
+  })
+
+  it('adds new items not present in state', () => {
+    const state = initAnimationState(items)
+    const newItems = [
+      ...items,
+      { id: 'new', x: 100, y: 200, z: 300, data: { genre: 'blues' } },
+    ]
+    const updated = updateTargets(state, newItems, null)
+    expect(updated['new']).toBeDefined()
+    expect(updated['new'].currentX).toBe(100)
+    expect(updated['new'].currentY).toBe(200)
+  })
+
+  it('preserves current positions while updating targets', () => {
+    let state = initAnimationState(items)
+    // animate a few frames so current !== original
+    for (let i = 0; i < 5; i++) {
+      state = updateTargets(state, items, (item) => item.data.genre)
+      state = stepAnimation(state)
+    }
+    // now reset targets back to scatter
+    const reset = updateTargets(state, items, null)
+    // current positions should be preserved (mid-animation), targets should go back to original
+    expect(reset['a'].targetX).toBe(0)
+    expect(reset['a'].targetY).toBe(0)
+    // current should NOT have jumped back to 0
+    expect(reset['a'].currentX).toBe(state['a'].currentX)
   })
 })
