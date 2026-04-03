@@ -24,6 +24,8 @@ export interface UniverseCore<T extends Record<string, unknown> = Record<string,
   camera: Camera
   selectedId: string | null
   setGroupBy: (fn: ((item: UniverseItem<T>) => string) | null) => void
+  handleItemClick: (item: UniverseItem<T>) => void
+  handleItemDoubleClick: (item: UniverseItem<T>) => void
   canvasHandlers: {
     onPointerDown: (e: PointerEvent) => void
     onPointerMove: (e: PointerEvent) => void
