@@ -112,9 +112,16 @@ export function useUniverseCore<T extends Record<string, unknown>>(
   function onWheel(e: WheelEvent) {
     const target = e.currentTarget as HTMLCanvasElement
     const rect = target.getBoundingClientRect()
-    const cursorX = e.clientX - rect.left
-    const cursorY = e.clientY - rect.top
-    setCamera((c) => zoomCamera(c, e.deltaY, cursorX, cursorY, rect.width, rect.height, deepestItemZ))
+
+    if (e.ctrlKey) {
+      // Pinch-to-zoom (trackpad pinch or Ctrl+scroll)
+      const cursorX = e.clientX - rect.left
+      const cursorY = e.clientY - rect.top
+      setCamera((c) => zoomCamera(c, e.deltaY, cursorX, cursorY, rect.width, rect.height, deepestItemZ))
+    } else {
+      // Two-finger trackpad pan (scroll)
+      setCamera((c) => panCamera(c, e.deltaX, e.deltaY))
+    }
   }
 
   function onTouchStart(e: TouchEvent) {
