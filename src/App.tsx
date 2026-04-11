@@ -10,17 +10,27 @@ type ArtPiece = {
 
 function generateItems(): UniverseItem<ArtPiece>[] {
   const movements = ['Impressionism', 'Cubism', 'Surrealism', 'Abstract', 'Baroque']
-  return Array.from({ length: 500 }, (_, i) => ({
-    id: `item-${i}`,
-    x: Math.sin(i * 0.37) * 2000,
-    y: Math.cos(i * 0.53) * 2000,
-    z: 200 + (i % 10) * 150,
-    data: {
-      title: `Artwork ${i}`,
-      movement: movements[i % movements.length],
-      imageUrl: `https://picsum.photos/seed/${i}/60/60`,
-    },
-  }))
+  return Array.from({ length: 500 }, (_, i) => {
+    // Uniform sphere distribution — looks like a circular cloud from afar,
+    // gives depth parallax when zooming in
+    const u1 = ((i * 2654435761) % 1000) / 1000
+    const u2 = ((i * 1140671485) % 1000) / 1000
+    const u3 = ((i * 374761393) % 1000) / 1000
+    const r = 1400 * Math.cbrt(u1)
+    const phi = Math.acos(1 - 2 * u2)
+    const theta = u3 * Math.PI * 2
+    return {
+      id: `item-${i}`,
+      x: r * Math.sin(phi) * Math.cos(theta),
+      y: r * Math.sin(phi) * Math.sin(theta),
+      z: 1000 + r * Math.cos(phi),
+      data: {
+        title: `Artwork ${i}`,
+        movement: movements[i % movements.length],
+        imageUrl: `https://picsum.photos/seed/${i}/60/60`,
+      },
+    }
+  })
 }
 
 const ITEMS = generateItems()

@@ -44,7 +44,7 @@ describe('projectItem', () => {
 
 describe('clampCameraZ', () => {
   it('does not go below minimum', () => {
-    expect(clampCameraZ(-9999, 1000)).toBe(-2000)
+    expect(clampCameraZ(-9999, 1000)).toBe(-5000)
   })
 
   it('does not exceed deepest item minus buffer', () => {
@@ -57,37 +57,34 @@ describe('clampCameraZ', () => {
 })
 
 describe('panCamera', () => {
-  it('adds delta to camera x and y', () => {
-    const cam = panCamera({ x: 10, y: 20, z: 0 }, 5, -3)
-    expect(cam.x).toBe(15)
-    expect(cam.y).toBe(17)
-    expect(cam.z).toBe(0)
+  it('shifts panX and panY in screen space', () => {
+    const cam = panCamera({ x: 0, y: 0, z: 0, panX: 0, panY: 0 }, 5, -3)
+    expect(cam.panX).toBe(-5)
+    expect(cam.panY).toBe(3)
+    expect(cam.x).toBe(0)
+    expect(cam.y).toBe(0)
   })
 })
 
 describe('zoomCamera', () => {
+  const cam0 = { x: 0, y: 0, z: 0, panX: 0, panY: 0 }
+
   it('moves camera z toward cursor world position', () => {
-    const camera = { x: 0, y: 0, z: 0 }
-    // scrolling in (negative delta) should increase z (move forward)
-    const result = zoomCamera(camera, -100, 400, 300, 800, 600, 1000)
+    const result = zoomCamera(cam0, -100, 400, 300, 800, 600, 1000)
     expect(result.z).toBeGreaterThan(0)
   })
 
   it('is clamped to deepest item z', () => {
-    const camera = { x: 0, y: 0, z: 900 }
+    const camera = { x: 0, y: 0, z: 900, panX: 0, panY: 0 }
     const result = zoomCamera(camera, -10000, 400, 300, 800, 600, 1000)
     expect(result.z).toBeLessThanOrEqual(950) // 1000 - 50 buffer
   })
 
   it('shifts camera x/y to keep cursor world point fixed when cursor is off-center', () => {
-    const camera = { x: 0, y: 0, z: 0 }
-    // cursor at (600, 200) — off-center on an 800x600 canvas
-    const result = zoomCamera(camera, -100, 600, 200, 800, 600, 2000)
-    // cursor-centering must have adjusted x and y
+    const result = zoomCamera(cam0, -100, 600, 200, 800, 600, 2000)
     expect(result.x).not.toBe(0)
     expect(result.y).not.toBe(0)
-    // zooming with cursor at canvas center should NOT shift x/y
-    const centered = zoomCamera(camera, -100, 400, 300, 800, 600, 2000)
+    const centered = zoomCamera(cam0, -100, 400, 300, 800, 600, 2000)
     expect(centered.x).toBeCloseTo(0)
     expect(centered.y).toBeCloseTo(0)
   })

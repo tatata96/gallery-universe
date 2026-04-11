@@ -2,7 +2,7 @@ import type { Camera, UniverseItem, RenderItem } from './types'
 
 export const FOCAL_LENGTH = 800
 export const ITEM_WORLD_SIZE = 50
-const CAMERA_Z_MIN = -2000
+const CAMERA_Z_MIN = -5000
 const CAMERA_Z_BUFFER = 50
 
 export function projectItem<T extends Record<string, unknown>>(
@@ -17,8 +17,8 @@ export function projectItem<T extends Record<string, unknown>>(
   const perspective = FOCAL_LENGTH / depth
   return {
     ...item,
-    screenX: (item.x - camera.x) * perspective + canvasWidth / 2,
-    screenY: (item.y - camera.y) * perspective + canvasHeight / 2,
+    screenX: (item.x - camera.x) * perspective + canvasWidth / 2 + camera.panX,
+    screenY: (item.y - camera.y) * perspective + canvasHeight / 2 + camera.panY,
     screenSize: itemWorldSize * perspective,
   }
 }
@@ -29,7 +29,7 @@ export function clampCameraZ(z: number, deepestItemZ: number): number {
 }
 
 export function panCamera(camera: Camera, dx: number, dy: number): Camera {
-  return { ...camera, x: camera.x + dx, y: camera.y + dy }
+  return { ...camera, panX: camera.panX - dx, panY: camera.panY - dy }
 }
 
 /**
@@ -60,8 +60,10 @@ export function zoomCamera(
   const offsetY = cursorScreenY - canvasHeight / 2
 
   return {
-    x: camera.x + (offsetX / FOCAL_LENGTH) * dz,
-    y: camera.y + (offsetY / FOCAL_LENGTH) * dz,
+    x: camera.x + ((offsetX - camera.panX) / FOCAL_LENGTH) * dz,
+    y: camera.y + ((offsetY - camera.panY) / FOCAL_LENGTH) * dz,
     z: newZ,
+    panX: camera.panX,
+    panY: camera.panY,
   }
 }

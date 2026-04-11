@@ -26,7 +26,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
 ): UniverseCoreExtended<T> {
   const { items, onItemClick, onItemDoubleClick } = options
 
-  const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, z: 0 })
+  const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, z: 0, panX: 0, panY: 0 })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [, setGroupByState] = useState<((item: UniverseItem<T>) => string) | null>(null)
 

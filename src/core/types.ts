@@ -2,6 +2,8 @@ export interface Camera {
   x: number
   y: number
   z: number
+  panX: number
+  panY: number
 }
 
 export interface UniverseItem<T extends Record<string, unknown> = Record<string, unknown>> {
