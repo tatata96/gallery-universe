@@ -1,6 +1,6 @@
 {
   "name": "gallery-universe",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "A zoomable, clusterable 3D canvas for displaying large collections of items",
   "main": "dist/index.cjs",
@@ -13,7 +13,9 @@
       "types": "./dist/types/index.d.ts"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "vite build && tsc -p tsconfig.lib.json",
