@@ -78,7 +78,7 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#f0f0f0' }}>
-      <div style={{ position: 'absolute', top: 16, left: 16, zIndex: 10, display: 'flex', gap: 8 }}>
+      <div style={{ position: 'fixed', top: 16, left: 16, zIndex: 10, display: 'flex', gap: 8 }}>
         <button
           onClick={() => handleFilter(null)}
           style={{ fontWeight: activeGroupBy === null ? 'bold' : 'normal' }}

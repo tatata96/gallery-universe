@@ -110,6 +110,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
   }
 
   function onWheel(e: WheelEvent) {
+    e.preventDefault()
     const target = e.currentTarget as HTMLCanvasElement
     const rect = target.getBoundingClientRect()
 
