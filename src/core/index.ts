@@ -1,8 +1,15 @@
 import { useCallback, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { Camera, UniverseItem, RenderItem, UniverseCore } from './types'
-import { projectItem, panCamera, zoomCamera } from './camera'
-import { initAnimationState, stepAnimation, updateTargets, type AnimationState } from './layout'
+import { projectItem, panCamera, zoomCamera, FOCAL_LENGTH } from './camera'
+import {
+  initAnimationState,
+  stepAnimation,
+  updateTargets,
+  clusterCenters,
+  GROUP_Z,
+  type AnimationState,
+} from './layout'
 import { isClick, isDoubleTap, type PointerState } from './interaction'
 
 export type { Camera, UniverseItem, RenderItem, UniverseCore } from './types'
@@ -35,6 +42,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
   const lastTapRef = useRef<number>(0)
   const prevTapWasClickRef = useRef<boolean>(false)
   const prevTouchDistRef = useRef<number | null>(null)
+  const groupCentersRef = useRef<Map<string, { x: number; y: number }>>(new Map())
 
   const deepestItemZ = items.reduce((max, item) => Math.max(max, item.z), 0)
 
@@ -42,9 +50,32 @@ export function useUniverseCore<T extends Record<string, unknown>>(
     (fn: ((item: UniverseItem<T>) => string) | null) => {
       setGroupByState(() => fn)
       animRef.current = updateTargets(animRef.current, items, fn)
+      if (fn) {
+        // Key extraction must stay consistent with computeClusterTargets in layout.ts
+        const keys = [...new Set(items.map(fn))]
+        groupCentersRef.current = clusterCenters(keys)
+      } else {
+        groupCentersRef.current = new Map()
+      }
     },
     [items],
   )
+
+  // Snaps the camera to center the given group on screen (sets panX/panY absolutely).
+  const navigateToGroup = useCallback((key: string) => {
+    const center = groupCentersRef.current.get(key)
+    if (!center) return
+    setCamera((c) => {
+      const depth = GROUP_Z - c.z
+      if (depth <= 0) return c
+      const perspective = FOCAL_LENGTH / depth
+      return {
+        ...c,
+        panX: -(center.x - c.x) * perspective,
+        panY: -(center.y - c.y) * perspective,
+      }
+    })
+  }, [])
 
   const handleItemClick = useCallback(
     (item: UniverseItem<T>) => {
@@ -70,7 +101,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
       for (const item of items) {
         const anim = animRef.current[item.id]
         const withAnim: UniverseItem<T> = anim
-          ? { ...item, x: anim.currentX, y: anim.currentY }
+          ? { ...item, x: anim.currentX, y: anim.currentY, z: anim.currentZ }
           : item
         const rendered = projectItem(withAnim, camera, width, height)
         if (rendered) projected.push(rendered)
@@ -188,6 +219,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
     camera,
     selectedId,
     setGroupBy,
+    navigateToGroup,
     animationState: animRef.current,
     stepAnimationFrame,
     handleItemClick,

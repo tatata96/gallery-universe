@@ -1,78 +1,79 @@
 import type { UniverseItem } from './types'
 
 export interface AnimationState {
-  [id: string]: { currentX: number; currentY: number; targetX: number; targetY: number }
-}
-
-const CLUSTER_RADIUS = 600
-const ITEM_SPREAD = 80
-const LERP_FACTOR = 0.1  // per frame: 10% toward target (~60 frames to converge to within 0.5 units)
-
-/** Simple seeded hash so offsets are deterministic per item id */
-function hashId(id: string): number {
-  let h = 2166136261 // FNV-1a offset basis
-  for (let i = 0; i < id.length; i++) {
-    h ^= id.charCodeAt(i)
-    h = Math.imul(h, 16777619) // FNV prime
-    h = h >>> 0 // keep unsigned 32-bit
+  [id: string]: {
+    currentX: number; targetX: number
+    currentY: number; targetY: number
+    currentZ: number; targetZ: number
   }
-  // xorshift finalizer for better avalanche
-  h ^= h >>> 16
-  h = Math.imul(h, 0x45d9f3b) >>> 0
-  h ^= h >>> 16
-  return h / 0x100000000
 }
+
+export const GROUP_Z = 1000
+export const GROUP_SPACING = 3000
+const CELL_SIZE = 70
+const LERP_FACTOR = 0.15 // per frame: 15% toward target (~38 frames to converge to within 0.5 units)
 
 /**
- * Deterministic radial cluster center layout.
- * Groups are sorted by key, then evenly distributed around a circle.
+ * Compute cluster center x positions along the x axis, sorted alphabetically.
+ * Exported so core/index.ts can use the same formula for navigateToGroup.
  */
-function clusterCenters(groupKeys: string[]): Map<string, { x: number; y: number }> {
+export function clusterCenters(groupKeys: string[]): Map<string, { x: number; y: number }> {
   const sorted = [...groupKeys].sort()
   const count = sorted.length
   const centers = new Map<string, { x: number; y: number }>()
   sorted.forEach((key, i) => {
-    const angle = (2 * Math.PI * i) / count
     centers.set(key, {
-      x: Math.cos(angle) * CLUSTER_RADIUS,
-      y: Math.sin(angle) * CLUSTER_RADIUS,
+      x: (i - (count - 1) / 2) * GROUP_SPACING,
+      y: 0,
     })
   })
   return centers
 }
 
 /**
- * Compute target x/y for each item.
- * If groupBy is null, targets are the item's original x/y.
- * Otherwise, targets are the cluster center + a small deterministic offset.
+ * Compute target x/y/z for each item.
+ * Scatter: original x/y/z.
+ * Grouped: grid position within cluster center + GROUP_Z.
  */
 export function computeClusterTargets<T extends Record<string, unknown>>(
   items: UniverseItem<T>[],
   groupBy: ((item: UniverseItem<T>) => string) | null,
-): Record<string, { x: number; y: number }> {
+): Record<string, { x: number; y: number; z: number }> {
   if (!groupBy) {
-    return Object.fromEntries(items.map((item) => [item.id, { x: item.x, y: item.y }]))
+    return Object.fromEntries(items.map((item) => [item.id, { x: item.x, y: item.y, z: item.z }]))
   }
 
   const itemKeys = items.map((item) => ({ item, key: groupBy(item) }))
   const groupKeys = [...new Set(itemKeys.map((e) => e.key))]
   const centers = clusterCenters(groupKeys)
 
-  return Object.fromEntries(
-    itemKeys.map(({ item, key }) => {
-      const center = centers.get(key)!
-      const seed = hashId(item.id)
-      const angle = seed * 2 * Math.PI
-      const radius = hashId(item.id + 'r') * ITEM_SPREAD
-      return [
-        item.id,
-        {
-          x: center.x + Math.cos(angle) * radius,
-          y: center.y + Math.sin(angle) * radius,
-        },
-      ]
-    }),
-  )
+  // Group items by key, sorted by id for determinism
+  const byKey = new Map<string, UniverseItem<T>[]>()
+  for (const { item, key } of itemKeys) {
+    if (!byKey.has(key)) byKey.set(key, [])
+    byKey.get(key)!.push(item)
+  }
+  for (const arr of byKey.values()) {
+    arr.sort((a, b) => a.id.localeCompare(b.id))
+  }
+
+  const result: Record<string, { x: number; y: number; z: number }> = {}
+  for (const [key, groupItems] of byKey) {
+    const center = centers.get(key)!
+    const cols = Math.ceil(Math.sqrt(groupItems.length))
+    const rows = Math.ceil(groupItems.length / cols)
+    groupItems.forEach((item, idx) => {
+      const col = idx % cols
+      const row = Math.floor(idx / cols)
+      result[item.id] = {
+        x: center.x + (col - (cols - 1) / 2) * CELL_SIZE,
+        // col * 0.5 stagger gives clusters a diagonal, less mechanical appearance
+        y: center.y + (row - (rows - 1) / 2) * CELL_SIZE + col * CELL_SIZE * 0.5,
+        z: GROUP_Z,
+      }
+    })
+  }
+  return result
 }
 
 /** Build initial animation state from items (current = original position) */
@@ -82,7 +83,11 @@ export function initAnimationState<T extends Record<string, unknown>>(
   return Object.fromEntries(
     items.map((item) => [
       item.id,
-      { currentX: item.x, currentY: item.y, targetX: item.x, targetY: item.y },
+      {
+        currentX: item.x, targetX: item.x,
+        currentY: item.y, targetY: item.y,
+        currentZ: item.z, targetZ: item.z,
+      },
     ]),
   )
 }
@@ -94,9 +99,11 @@ export function stepAnimation(state: AnimationState): AnimationState {
     const s = state[id]
     next[id] = {
       currentX: s.currentX + (s.targetX - s.currentX) * LERP_FACTOR,
-      currentY: s.currentY + (s.targetY - s.currentY) * LERP_FACTOR,
       targetX: s.targetX,
+      currentY: s.currentY + (s.targetY - s.currentY) * LERP_FACTOR,
       targetY: s.targetY,
+      currentZ: s.currentZ + (s.targetZ - s.currentZ) * LERP_FACTOR,
+      targetZ: s.targetZ,
     }
   }
   return next
@@ -110,16 +117,20 @@ export function updateTargets<T extends Record<string, unknown>>(
 ): AnimationState {
   const targets = computeClusterTargets(items, groupBy)
   const next: AnimationState = {}
-  // Update existing items
+
   for (const id in state) {
-    const t = targets[id] ?? { x: state[id].currentX, y: state[id].currentY }
-    next[id] = { ...state[id], targetX: t.x, targetY: t.y }
+    const t = targets[id] ?? { x: state[id].currentX, y: state[id].currentY, z: state[id].currentZ }
+    next[id] = { ...state[id], targetX: t.x, targetY: t.y, targetZ: t.z }
   }
-  // Add new items not yet in state (use their world position as starting point)
+
   for (const item of items) {
     if (!(item.id in next)) {
-      const t = targets[item.id] ?? { x: item.x, y: item.y }
-      next[item.id] = { currentX: item.x, currentY: item.y, targetX: t.x, targetY: t.y }
+      const t = targets[item.id] ?? { x: item.x, y: item.y, z: item.z }
+      next[item.id] = {
+        currentX: item.x, targetX: t.x,
+        currentY: item.y, targetY: t.y,
+        currentZ: item.z, targetZ: t.z,
+      }
     }
   }
   return next

@@ -34,6 +34,7 @@ function generateItems(): UniverseItem<ArtPiece>[] {
 }
 
 const ITEMS = generateItems()
+const ALL_MOVEMENTS = [...new Set(ITEMS.map((item) => item.data.movement))].sort()
 
 function renderItem(
   ctx: CanvasRenderingContext2D,
@@ -85,6 +86,7 @@ export default function App() {
         >
           Scatter
         </button>
+
         <button
           onClick={() => handleFilter('movement')}
           style={{ fontWeight: activeGroupBy === 'movement' ? 'bold' : 'normal' }}
@@ -92,6 +94,7 @@ export default function App() {
           By Movement
         </button>
       </div>
+
       <UniverseCanvas
         core={core}
         width={window.innerWidth}
@@ -99,6 +102,33 @@ export default function App() {
         renderItem={renderItem}
         groupBy={activeGroupBy ? (item) => item.data.movement : null}
       />
+
+      {activeGroupBy && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            display: 'flex',
+            gap: 8,
+            overflowX: 'auto',
+            padding: '8px 16px',
+            background: 'rgba(240,240,240,0.92)',
+            zIndex: 10,
+          }}
+        >
+          {ALL_MOVEMENTS.map((movement) => (
+            <button
+              key={movement}
+              onClick={() => core.navigateToGroup(movement)}
+              style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              {movement}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
