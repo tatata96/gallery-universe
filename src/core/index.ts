@@ -28,12 +28,14 @@ export interface UniverseCoreExtended<T extends Record<string, unknown>> extends
   prevTapWasClick: RefObject<boolean>
 }
 
+const INITIAL_CAMERA_Z = -2000
+
 export function useUniverseCore<T extends Record<string, unknown>>(
   options: UseUniverseCoreOptions<T>,
 ): UniverseCoreExtended<T> {
   const { items, onItemClick, onItemDoubleClick } = options
 
-  const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, z: 0, panX: 0, panY: 0 })
+  const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, z: INITIAL_CAMERA_Z, panX: 0, panY: 0 })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [, setGroupByState] = useState<((item: UniverseItem<T>) => string) | null>(null)
 
@@ -54,8 +56,10 @@ export function useUniverseCore<T extends Record<string, unknown>>(
         // Key extraction must stay consistent with computeClusterTargets in layout.ts
         const keys = [...new Set(items.map(fn))]
         groupCentersRef.current = clusterCenters(keys)
+        setCamera({ x: 0, y: 0, z: -2500, panX: 0, panY: 0 })
       } else {
         groupCentersRef.current = new Map()
+        setCamera({ x: 0, y: 0, z: INITIAL_CAMERA_Z, panX: 0, panY: 0 })
       }
     },
     [items],

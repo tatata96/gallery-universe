@@ -9,7 +9,7 @@ export interface AnimationState {
 }
 
 export const GROUP_Z = 1000
-export const GROUP_SPACING = 3000
+export const GROUP_SPACING = 1500
 const CELL_SIZE = 70
 const LERP_FACTOR = 0.15 // per frame: 15% toward target (~38 frames to converge to within 0.5 units)
 
