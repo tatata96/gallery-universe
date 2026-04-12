@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "declaration": true,
+    "declarationDir": "dist/types",
+    "emitDeclarationOnly": true,
+    "allowImportingTsExtensions": false
+  },
+  "exclude": ["src/main.tsx", "src/App.tsx", "src/**/__tests__"]
+}
