@@ -27,7 +27,7 @@ function generateItems(): UniverseItem<ArtPiece>[] {
       data: {
         title: `Artwork ${i}`,
         movement: movements[i % movements.length],
-        imageUrl: `https://picsum.photos/seed/${i}/60/60`,
+        imageUrl: `https://picsum.photos/seed/${i}/800/800`,
       },
     }
   })

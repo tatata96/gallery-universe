@@ -17,7 +17,7 @@ const makeItem = (x: number, y: number, z: number) => ({
 
 describe('projectItem', () => {
   it('projects item at camera position to canvas center', () => {
-    const camera = { x: 0, y: 0, z: 0 }
+    const camera = { x: 0, y: 0, z: 0, panX: 0, panY: 0 }
     const item = makeItem(0, 0, FOCAL_LENGTH)
     const result = projectItem(item, camera, 800, 600, 50)
     expect(result).not.toBeNull()
@@ -26,14 +26,14 @@ describe('projectItem', () => {
   })
 
   it('returns null when item is behind the camera', () => {
-    const camera = { x: 0, y: 0, z: 500 }
+    const camera = { x: 0, y: 0, z: 500, panX: 0, panY: 0 }
     const item = makeItem(0, 0, 100) // depth = 100 - 500 = -400
     const result = projectItem(item, camera, 800, 600, 50)
     expect(result).toBeNull()
   })
 
   it('screenSize scales with distance', () => {
-    const camera = { x: 0, y: 0, z: 0 }
+    const camera = { x: 0, y: 0, z: 0, panX: 0, panY: 0 }
     const near = projectItem(makeItem(0, 0, 100), camera, 800, 600, 50)
     const far = projectItem(makeItem(0, 0, 400), camera, 800, 600, 50)
     expect(near).not.toBeNull()

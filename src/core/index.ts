@@ -115,9 +115,11 @@ export function useUniverseCore<T extends Record<string, unknown>>(
 
     if (e.ctrlKey) {
       // Pinch-to-zoom (trackpad pinch or Ctrl+scroll)
+      // Cap per-event delta so a single fast gesture can't slam the camera into the limit
+      const clampedDelta = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 15)
       const cursorX = e.clientX - rect.left
       const cursorY = e.clientY - rect.top
-      setCamera((c) => zoomCamera(c, e.deltaY, cursorX, cursorY, rect.width, rect.height, deepestItemZ))
+      setCamera((c) => zoomCamera(c, clampedDelta, cursorX, cursorY, rect.width, rect.height, deepestItemZ))
     } else {
       // Two-finger trackpad pan (scroll)
       setCamera((c) => panCamera(c, e.deltaX, e.deltaY))
@@ -155,10 +157,11 @@ export function useUniverseCore<T extends Record<string, unknown>>(
       const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2
       const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2
       if (prevTouchDistRef.current !== null) {
-        const delta = prevTouchDistRef.current - dist
+        const rawDelta = prevTouchDistRef.current - dist
+        const clampedDelta = Math.sign(rawDelta) * Math.min(Math.abs(rawDelta * 2), 15)
         const target = e.currentTarget as HTMLCanvasElement
         const rect = target.getBoundingClientRect()
-        setCamera((c) => zoomCamera(c, delta * 2, midX - rect.left, midY - rect.top, rect.width, rect.height, deepestItemZ))
+        setCamera((c) => zoomCamera(c, clampedDelta, midX - rect.left, midY - rect.top, rect.width, rect.height, deepestItemZ))
       }
       prevTouchDistRef.current = dist
     }

@@ -53,7 +53,9 @@ export function zoomCamera(
   deepestItemZ: number,
 ): Camera {
   const dzRaw = -wheelDelta * 6
-  const newZ = clampCameraZ(camera.z + dzRaw, deepestItemZ)
+  const limit = deepestItemZ - CAMERA_Z_BUFFER
+  const maxStep = dzRaw > 0 ? (limit - camera.z) * 0.3 : Infinity
+  const newZ = clampCameraZ(camera.z + Math.min(dzRaw, maxStep), deepestItemZ)
   const dz = newZ - camera.z
 
   const offsetX = cursorScreenX - canvasWidth / 2
