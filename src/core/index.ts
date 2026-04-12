@@ -45,11 +45,13 @@ export function useUniverseCore<T extends Record<string, unknown>>(
   const prevTapWasClickRef = useRef<boolean>(false)
   const prevTouchDistRef = useRef<number | null>(null)
   const groupCentersRef = useRef<Map<string, { x: number; y: number }>>(new Map())
+  const pendingNavGroupRef = useRef<string | null>(null)
 
   const deepestItemZ = items.reduce((max, item) => Math.max(max, item.z), 0)
 
   const setGroupBy = useCallback(
     (fn: ((item: UniverseItem<T>) => string) | null) => {
+      pendingNavGroupRef.current = null
       setGroupByState(() => fn)
       animRef.current = updateTargets(animRef.current, items, fn)
       if (fn) {
@@ -65,20 +67,11 @@ export function useUniverseCore<T extends Record<string, unknown>>(
     [items],
   )
 
-  // Snaps the camera to center the given group on screen (sets panX/panY absolutely).
+  // Queues a smooth camera pan to center the given group on screen.
   const navigateToGroup = useCallback((key: string) => {
-    const center = groupCentersRef.current.get(key)
-    if (!center) return
-    setCamera((c) => {
-      const depth = GROUP_Z - c.z
-      if (depth <= 0) return c
-      const perspective = FOCAL_LENGTH / depth
-      return {
-        ...c,
-        panX: -(center.x - c.x) * perspective,
-        panY: -(center.y - c.y) * perspective,
-      }
-    })
+    if (groupCentersRef.current.has(key)) {
+      pendingNavGroupRef.current = key
+    }
   }, [])
 
   const handleItemClick = useCallback(
@@ -100,6 +93,27 @@ export function useUniverseCore<T extends Record<string, unknown>>(
   const stepAnimationFrame = useCallback(
     (width: number, height: number): RenderItem<T>[] => {
       animRef.current = stepAnimation(animRef.current)
+
+      // Smoothly pan camera toward the pending navigation target
+      if (pendingNavGroupRef.current) {
+        const center = groupCentersRef.current.get(pendingNavGroupRef.current)
+        if (center) {
+          const depth = GROUP_Z - camera.z
+          if (depth > 0) {
+            const perspective = FOCAL_LENGTH / depth
+            const targetPanX = -(center.x - camera.x) * perspective
+            const targetPanY = -(center.y - camera.y) * perspective
+            const nextPanX = camera.panX + (targetPanX - camera.panX) * 0.08
+            const nextPanY = camera.panY + (targetPanY - camera.panY) * 0.08
+            if (Math.abs(nextPanX - targetPanX) < 0.5 && Math.abs(nextPanY - targetPanY) < 0.5) {
+              pendingNavGroupRef.current = null
+              setCamera((c) => ({ ...c, panX: targetPanX, panY: targetPanY }))
+            } else {
+              setCamera((c) => ({ ...c, panX: nextPanX, panY: nextPanY }))
+            }
+          }
+        }
+      }
 
       const projected: RenderItem<T>[] = []
       for (const item of items) {

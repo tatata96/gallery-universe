@@ -12,6 +12,7 @@ export const GROUP_Z = 1000
 export const GROUP_SPACING = 1500
 const CELL_SIZE = 70
 const LERP_FACTOR = 0.15 // per frame: 15% toward target (~38 frames to converge to within 0.5 units)
+const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)) // ≈ 137.5° — Fibonacci sunflower angle
 
 /**
  * Compute cluster center x positions along the x axis, sorted alphabetically.
@@ -60,15 +61,12 @@ export function computeClusterTargets<T extends Record<string, unknown>>(
   const result: Record<string, { x: number; y: number; z: number }> = {}
   for (const [key, groupItems] of byKey) {
     const center = centers.get(key)!
-    const cols = Math.ceil(Math.sqrt(groupItems.length))
-    const rows = Math.ceil(groupItems.length / cols)
     groupItems.forEach((item, idx) => {
-      const col = idx % cols
-      const row = Math.floor(idx / cols)
+      const radius = CELL_SIZE * Math.sqrt(idx + 0.5)
+      const angle = idx * GOLDEN_ANGLE
       result[item.id] = {
-        x: center.x + (col - (cols - 1) / 2) * CELL_SIZE,
-        // col * 0.5 stagger gives clusters a diagonal, less mechanical appearance
-        y: center.y + (row - (rows - 1) / 2) * CELL_SIZE + col * CELL_SIZE * 0.5,
+        x: center.x + Math.cos(angle) * radius,
+        y: center.y + Math.sin(angle) * radius,
         z: GROUP_Z,
       }
     })
