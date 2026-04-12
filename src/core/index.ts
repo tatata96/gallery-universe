@@ -10,6 +10,8 @@ import {
   GROUP_Z,
   type AnimationState,
 } from './layout'
+
+export { createItems } from './layout'
 import { isClick, isDoubleTap, type PointerState } from './interaction'
 
 export type { Camera, UniverseItem, RenderItem, UniverseCore } from './types'

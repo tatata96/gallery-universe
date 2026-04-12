@@ -74,6 +74,34 @@ export function computeClusterTargets<T extends Record<string, unknown>>(
   return result
 }
 
+/**
+ * Generate `count` UniverseItems arranged in a uniform sphere distribution.
+ * The caller only supplies the per-item data; positions and ids are handled here.
+ */
+export function createItems<T extends Record<string, unknown>>(
+  count: number,
+  getData: (index: number) => T,
+  options?: { radius?: number; centerZ?: number },
+): import('./types').UniverseItem<T>[] {
+  const radius = options?.radius ?? 1400
+  const centerZ = options?.centerZ ?? 1000
+  return Array.from({ length: count }, (_, i) => {
+    const u1 = ((i * 2654435761) % 1000) / 1000
+    const u2 = ((i * 1140671485) % 1000) / 1000
+    const u3 = ((i * 374761393) % 1000) / 1000
+    const r = radius * Math.cbrt(u1)
+    const phi = Math.acos(1 - 2 * u2)
+    const theta = u3 * Math.PI * 2
+    return {
+      id: `item-${i}`,
+      x: r * Math.sin(phi) * Math.cos(theta),
+      y: r * Math.sin(phi) * Math.sin(theta),
+      z: centerZ + r * Math.cos(phi),
+      data: getData(i),
+    }
+  })
+}
+
 /** Build initial animation state from items (current = original position) */
 export function initAnimationState<T extends Record<string, unknown>>(
   items: UniverseItem<T>[],

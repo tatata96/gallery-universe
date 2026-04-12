@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { useUniverseCore, UniverseCanvas, loadImage } from './index'
-import type { UniverseItem, RenderItem } from './index'
+import { useUniverseCore, UniverseCanvas, createItems, createImageRenderer } from './index'
 
 type ArtPiece = {
   title: string
@@ -8,56 +7,16 @@ type ArtPiece = {
   imageUrl: string
 }
 
-function generateItems(): UniverseItem<ArtPiece>[] {
-  const movements = ['Impressionism', 'Cubism', 'Surrealism', 'Abstract', 'Baroque']
-  return Array.from({ length: 500 }, (_, i) => {
-    // Uniform sphere distribution — looks like a circular cloud from afar,
-    // gives depth parallax when zooming in
-    const u1 = ((i * 2654435761) % 1000) / 1000
-    const u2 = ((i * 1140671485) % 1000) / 1000
-    const u3 = ((i * 374761393) % 1000) / 1000
-    const r = 1400 * Math.cbrt(u1)
-    const phi = Math.acos(1 - 2 * u2)
-    const theta = u3 * Math.PI * 2
-    return {
-      id: `item-${i}`,
-      x: r * Math.sin(phi) * Math.cos(theta),
-      y: r * Math.sin(phi) * Math.sin(theta),
-      z: 1000 + r * Math.cos(phi),
-      data: {
-        title: `Artwork ${i}`,
-        movement: movements[i % movements.length],
-        imageUrl: `https://picsum.photos/seed/${i}/800/800`,
-      },
-    }
-  })
-}
+const movements = ['Impressionism', 'Cubism', 'Surrealism', 'Abstract', 'Baroque']
 
-const ITEMS = generateItems()
+const ITEMS = createItems(500, (i) => ({
+  title: `Artwork ${i}`,
+  movement: movements[i % movements.length],
+  imageUrl: `https://picsum.photos/seed/${i}/800/800`,
+}))
 const ALL_MOVEMENTS = [...new Set(ITEMS.map((item) => item.data.movement))].sort()
 
-function renderItem(
-  ctx: CanvasRenderingContext2D,
-  item: RenderItem<ArtPiece>,
-  isSelected: boolean,
-) {
-  const { screenX, screenY, screenSize } = item
-  const half = screenSize / 2
-  const img = loadImage(item.data.imageUrl)
-
-  if (img.complete) {
-    ctx.drawImage(img, screenX - half, screenY - half, screenSize, screenSize)
-  } else {
-    ctx.fillStyle = '#ccc'
-    ctx.fillRect(screenX - half, screenY - half, screenSize, screenSize)
-  }
-
-  if (isSelected) {
-    ctx.strokeStyle = '#ff0'
-    ctx.lineWidth = 3
-    ctx.strokeRect(screenX - half - 2, screenY - half - 2, screenSize + 4, screenSize + 4)
-  }
-}
+const renderItem = createImageRenderer<ArtPiece>('imageUrl')
 
 export default function App() {
   const [activeGroupBy, setActiveGroupBy] = useState<string | null>(null)
