@@ -23,7 +23,6 @@ export interface RenderItem<T extends Record<string, unknown> = Record<string, u
 
 export interface UniverseCore<T extends Record<string, unknown> = Record<string, unknown>> {
   renderItems: RenderItem<T>[]
-  camera: Camera
   selectedId: string | null
   setGroupBy: (fn: ((item: UniverseItem<T>) => string) | null) => void
   navigateToGroup: (key: string) => void

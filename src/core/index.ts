@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
+import { gsap } from 'gsap'
 import type { Camera, UniverseItem, RenderItem, UniverseCore } from './types'
-import { projectItem, panCamera, zoomCamera, FOCAL_LENGTH } from './camera'
+import { projectItem, zoomCamera, FOCAL_LENGTH } from './camera'
 import {
   initAnimationState,
   stepAnimation,
@@ -23,7 +24,8 @@ interface UseUniverseCoreOptions<T extends Record<string, unknown>> {
 }
 
 export interface UniverseCoreExtended<T extends Record<string, unknown>> extends UniverseCore<T> {
-  animationState: AnimationState
+  cameraRef: RefObject<Camera>
+  animRef: RefObject<AnimationState>
   stepAnimationFrame: (width: number, height: number) => RenderItem<T>[]
   handleItemClick: (item: UniverseItem<T>) => void
   handleItemDoubleClick: (item: UniverseItem<T>) => void
@@ -37,7 +39,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
 ): UniverseCoreExtended<T> {
   const { items, onItemClick, onItemDoubleClick } = options
 
-  const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, z: INITIAL_CAMERA_Z, panX: 0, panY: 0 })
+  const cameraRef = useRef<Camera>({ x: 0, y: 0, z: INITIAL_CAMERA_Z, panX: 0, panY: 0 })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [, setGroupByState] = useState<((item: UniverseItem<T>) => string) | null>(null)
 
@@ -47,33 +49,49 @@ export function useUniverseCore<T extends Record<string, unknown>>(
   const prevTapWasClickRef = useRef<boolean>(false)
   const prevTouchDistRef = useRef<number | null>(null)
   const groupCentersRef = useRef<Map<string, { x: number; y: number }>>(new Map())
-  const pendingNavGroupRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    return () => {
+      gsap.killTweensOf(cameraRef.current)
+    }
+  }, [])
 
   const deepestItemZ = items.reduce((max, item) => Math.max(max, item.z), 0)
 
   const setGroupBy = useCallback(
     (fn: ((item: UniverseItem<T>) => string) | null) => {
-      pendingNavGroupRef.current = null
       setGroupByState(() => fn)
       animRef.current = updateTargets(animRef.current, items, fn)
       if (fn) {
-        // Key extraction must stay consistent with computeClusterTargets in layout.ts
         const keys = [...new Set(items.map(fn))]
         groupCentersRef.current = clusterCenters(keys)
-        setCamera({ x: 0, y: 0, z: -2500, panX: 0, panY: 0 })
+        gsap.killTweensOf(cameraRef.current)
+        Object.assign(cameraRef.current, { x: 0, y: 0, z: -2500, panX: 0, panY: 0 })
       } else {
         groupCentersRef.current = new Map()
-        setCamera({ x: 0, y: 0, z: INITIAL_CAMERA_Z, panX: 0, panY: 0 })
+        gsap.killTweensOf(cameraRef.current)
+        Object.assign(cameraRef.current, { x: 0, y: 0, z: INITIAL_CAMERA_Z, panX: 0, panY: 0 })
       }
     },
     [items],
   )
 
-  // Queues a smooth camera pan to center the given group on screen.
   const navigateToGroup = useCallback((key: string) => {
-    if (groupCentersRef.current.has(key)) {
-      pendingNavGroupRef.current = key
-    }
+    const center = groupCentersRef.current.get(key)
+    if (!center) return
+    const cam = cameraRef.current
+    const depth = GROUP_Z - cam.z
+    if (depth <= 0) return
+    const perspective = FOCAL_LENGTH / depth
+    const targetPanX = -(center.x - cam.x) * perspective
+    const targetPanY = -(center.y - cam.y) * perspective
+    gsap.to(cameraRef.current, {
+      panX: targetPanX,
+      panY: targetPanY,
+      duration: 0.6,
+      ease: 'power3.inOut',
+      overwrite: 'auto',
+    })
   }, [])
 
   const handleItemClick = useCallback(
@@ -95,27 +113,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
   const stepAnimationFrame = useCallback(
     (width: number, height: number): RenderItem<T>[] => {
       animRef.current = stepAnimation(animRef.current)
-
-      // Smoothly pan camera toward the pending navigation target
-      if (pendingNavGroupRef.current) {
-        const center = groupCentersRef.current.get(pendingNavGroupRef.current)
-        if (center) {
-          const depth = GROUP_Z - camera.z
-          if (depth > 0) {
-            const perspective = FOCAL_LENGTH / depth
-            const targetPanX = -(center.x - camera.x) * perspective
-            const targetPanY = -(center.y - camera.y) * perspective
-            const nextPanX = camera.panX + (targetPanX - camera.panX) * 0.08
-            const nextPanY = camera.panY + (targetPanY - camera.panY) * 0.08
-            if (Math.abs(nextPanX - targetPanX) < 0.5 && Math.abs(nextPanY - targetPanY) < 0.5) {
-              pendingNavGroupRef.current = null
-              setCamera((c) => ({ ...c, panX: targetPanX, panY: targetPanY }))
-            } else {
-              setCamera((c) => ({ ...c, panX: nextPanX, panY: nextPanY }))
-            }
-          }
-        }
-      }
+      const cam = cameraRef.current
 
       const projected: RenderItem<T>[] = []
       for (const item of items) {
@@ -123,15 +121,15 @@ export function useUniverseCore<T extends Record<string, unknown>>(
         const withAnim: UniverseItem<T> = anim
           ? { ...item, x: anim.currentX, y: anim.currentY, z: anim.currentZ }
           : item
-        const rendered = projectItem(withAnim, camera, width, height)
+        const rendered = projectItem(withAnim, cam, width, height)
         if (rendered) projected.push(rendered)
       }
 
       // Sort back-to-front: items with larger depth (further from camera) drawn first
-      projected.sort((a, b) => (b.z - camera.z) - (a.z - camera.z))
+      projected.sort((a, b) => (b.z - cam.z) - (a.z - cam.z))
       return projected
     },
-    [items, camera],
+    [items],
   )
 
   function onPointerDown(e: PointerEvent) {
@@ -151,7 +149,8 @@ export function useUniverseCore<T extends Record<string, unknown>>(
       pointerRef.current.isDragging = true
     }
     if (pointerRef.current.isDragging) {
-      setCamera((c) => panCamera(c, -dx, -dy))
+      cameraRef.current.panX += dx
+      cameraRef.current.panY += dy
       pointerRef.current = { ...pointerRef.current, downX: e.clientX, downY: e.clientY }
     }
   }
@@ -167,14 +166,18 @@ export function useUniverseCore<T extends Record<string, unknown>>(
 
     if (e.ctrlKey) {
       // Pinch-to-zoom (trackpad pinch or Ctrl+scroll)
-      // Cap per-event delta so a single fast gesture can't slam the camera into the limit
+      // Apply directly — continuous input fires at 60fps so tweening creates near-zero movement
       const clampedDelta = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 15)
       const cursorX = e.clientX - rect.left
       const cursorY = e.clientY - rect.top
-      setCamera((c) => zoomCamera(c, clampedDelta, cursorX, cursorY, rect.width, rect.height, deepestItemZ))
+      const zoomed = zoomCamera(cameraRef.current, clampedDelta, cursorX, cursorY, rect.width, rect.height, deepestItemZ)
+      gsap.killTweensOf(cameraRef.current, 'x,y,z')
+      Object.assign(cameraRef.current, { x: zoomed.x, y: zoomed.y, z: zoomed.z })
     } else {
-      // Two-finger trackpad pan (scroll)
-      setCamera((c) => panCamera(c, e.deltaX, e.deltaY))
+      // Two-finger trackpad pan (scroll) — apply directly, same reason
+      gsap.killTweensOf(cameraRef.current, 'panX,panY')
+      cameraRef.current.panX -= e.deltaX
+      cameraRef.current.panY -= e.deltaY
     }
   }
 
@@ -200,7 +203,8 @@ export function useUniverseCore<T extends Record<string, unknown>>(
       const dx = e.touches[0].clientX - pointerRef.current.downX
       const dy = e.touches[0].clientY - pointerRef.current.downY
       pointerRef.current.isDragging = true
-      setCamera((c) => panCamera(c, -dx, -dy))
+      cameraRef.current.panX += dx
+      cameraRef.current.panY += dy
       pointerRef.current = { ...pointerRef.current, downX: e.touches[0].clientX, downY: e.touches[0].clientY }
     } else if (e.touches.length === 2) {
       const dx = e.touches[1].clientX - e.touches[0].clientX
@@ -211,9 +215,17 @@ export function useUniverseCore<T extends Record<string, unknown>>(
       if (prevTouchDistRef.current !== null) {
         const rawDelta = prevTouchDistRef.current - dist
         const clampedDelta = Math.sign(rawDelta) * Math.min(Math.abs(rawDelta * 2), 15)
-        const target = e.currentTarget as HTMLCanvasElement
-        const rect = target.getBoundingClientRect()
-        setCamera((c) => zoomCamera(c, clampedDelta, midX - rect.left, midY - rect.top, rect.width, rect.height, deepestItemZ))
+        const touchTarget = e.currentTarget as HTMLCanvasElement
+        const rect = touchTarget.getBoundingClientRect()
+        const pinchTarget = zoomCamera(cameraRef.current, clampedDelta, midX - rect.left, midY - rect.top, rect.width, rect.height, deepestItemZ)
+        gsap.to(cameraRef.current, {
+          x: pinchTarget.x,
+          y: pinchTarget.y,
+          z: pinchTarget.z,
+          duration: 0.15,
+          ease: 'power2.out',
+          overwrite: 'auto',
+        })
       }
       prevTouchDistRef.current = dist
     }
@@ -236,11 +248,11 @@ export function useUniverseCore<T extends Record<string, unknown>>(
 
   return {
     renderItems: [],
-    camera,
+    cameraRef,
+    animRef,
     selectedId,
     setGroupBy,
     navigateToGroup,
-    animationState: animRef.current,
     stepAnimationFrame,
     handleItemClick,
     handleItemDoubleClick,
