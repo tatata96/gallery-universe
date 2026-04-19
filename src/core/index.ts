@@ -9,7 +9,6 @@ import {
   updateTargets,
   clusterCenters,
   computeContentBounds,
-  GROUP_Z,
   type AnimationState,
 } from './layout'
 
@@ -27,6 +26,7 @@ interface UseUniverseCoreOptions<T extends Record<string, unknown>> {
 export interface UniverseCoreExtended<T extends Record<string, unknown>> extends UniverseCore<T> {
   cameraRef: RefObject<Camera>
   animRef: RefObject<AnimationState>
+  groupCentersRef: RefObject<Map<string, { x: number; y: number }>>
   stepAnimationFrame: (width: number, height: number) => RenderItem<T>[]
   handleItemClick: (item: UniverseItem<T>) => void
   handleItemDoubleClick: (item: UniverseItem<T>) => void
@@ -167,7 +167,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
     }
   }
 
-  function onPointerUp(_e: PointerEvent) {
+  function onPointerUp() {
     pointerRef.current = null
   }
 
@@ -262,7 +262,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
     }
   }
 
-  function onDoubleClick(_e: MouseEvent) {
+  function onDoubleClick() {
     // desktop double-click resolved by canvas via handleItemDoubleClick
   }
 
@@ -270,6 +270,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
     renderItems: [],
     cameraRef,
     animRef,
+    groupCentersRef,
     selectedId,
     setGroupBy,
     navigateToGroup,

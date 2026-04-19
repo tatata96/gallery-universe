@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useUniverseCore, UniverseCanvas, createItems, createImageRenderer } from './index'
+import { CategoryNav } from './components/CategoryNav/CategoryNav'
 
 type ArtPiece = {
   title: string
@@ -14,7 +15,13 @@ const ITEMS = createItems(500, (i) => ({
   movement: movements[i % movements.length],
   imageUrl: `https://picsum.photos/seed/${i}/800/800`,
 }))
+
 const ALL_MOVEMENTS = [...new Set(ITEMS.map((item) => item.data.movement))].sort()
+
+const GROUP_COUNTS = ALL_MOVEMENTS.map((movement) => ({
+  key: movement,
+  count: ITEMS.filter((item) => item.data.movement === movement).length,
+}))
 
 const renderItem = createImageRenderer<ArtPiece>('imageUrl')
 
@@ -63,30 +70,12 @@ export default function App() {
       />
 
       {activeGroupBy && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            display: 'flex',
-            gap: 8,
-            overflowX: 'auto',
-            padding: '8px 16px',
-            background: 'rgba(240,240,240,0.92)',
-            zIndex: 10,
-          }}
-        >
-          {ALL_MOVEMENTS.map((movement) => (
-            <button
-              key={movement}
-              onClick={() => core.navigateToGroup(movement)}
-              style={{ whiteSpace: 'nowrap', flexShrink: 0 }}
-            >
-              {movement}
-            </button>
-          ))}
-        </div>
+        <CategoryNav
+          groups={GROUP_COUNTS}
+          cameraRef={core.cameraRef}
+          groupCentersRef={core.groupCentersRef}
+          onSelect={core.navigateToGroup}
+        />
       )}
     </div>
   )

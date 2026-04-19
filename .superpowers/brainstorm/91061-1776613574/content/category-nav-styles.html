@@ -1,0 +1,64 @@
+<h2>Category Navigator — Design Style</h2>
+<p class="subtitle">Which visual style feels right for the bottom category bar?</p>
+
+<div class="cards">
+
+  <!-- Option A: Floating pill strip -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f0f0f0; padding: 24px 16px; display:flex; flex-direction:column; align-items:center; gap:12px;">
+      <div style="font-size:11px; color:#999; letter-spacing:0.08em; text-transform:uppercase;">Bottom of screen</div>
+      <div style="display:flex; gap:6px; background:rgba(255,255,255,0.9); border-radius:999px; padding:6px 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.12); backdrop-filter:blur(8px);">
+        <span style="background:#222; color:#fff; border-radius:999px; padding:5px 14px; font-size:13px; font-weight:600; white-space:nowrap;">Baroque (98)</span>
+        <span style="border-radius:999px; padding:5px 14px; font-size:13px; color:#555; white-space:nowrap;">Cubism (101)</span>
+        <span style="border-radius:999px; padding:5px 14px; font-size:13px; color:#555; white-space:nowrap;">Impressionism (77)</span>
+        <span style="border-radius:999px; padding:5px 14px; font-size:13px; color:#555; white-space:nowrap;">Surrealism (102)</span>
+        <span style="border-radius:999px; padding:5px 14px; font-size:13px; color:#555; white-space:nowrap;">Abstract (122)</span>
+      </div>
+      <div style="font-size:10px; color:#bbb;">← scrollable →</div>
+    </div>
+    <div class="card-body">
+      <h3>A — Floating Pill Strip</h3>
+      <p>Single rounded container with pill-shaped active item. Floats above background with blur. Compact and modern.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Chip row (flat, spaced) -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f0f0f0; padding: 24px 16px; display:flex; flex-direction:column; align-items:center; gap:12px;">
+      <div style="font-size:11px; color:#999; letter-spacing:0.08em; text-transform:uppercase;">Bottom of screen</div>
+      <div style="display:flex; gap:8px;">
+        <span style="background:#222; color:#fff; border-radius:8px; padding:7px 14px; font-size:13px; font-weight:500; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.15);">Baroque (98)</span>
+        <span style="background:white; border-radius:8px; padding:7px 14px; font-size:13px; color:#444; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.08);">Cubism (101)</span>
+        <span style="background:white; border-radius:8px; padding:7px 14px; font-size:13px; color:#444; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.08);">Impressionism (77)</span>
+        <span style="background:white; border-radius:8px; padding:7px 14px; font-size:13px; color:#444; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,0.08);">Abstract (122)</span>
+      </div>
+      <div style="font-size:10px; color:#bbb;">← scrollable →</div>
+    </div>
+    <div class="card-body">
+      <h3>B — Floating Chips</h3>
+      <p>Individual floating chip cards per category. Each chip is its own elevated element. Active chip is dark.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Segmented track (scrollbar-like) -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f0f0f0; padding: 24px 16px; display:flex; flex-direction:column; align-items:center; gap:12px;">
+      <div style="font-size:11px; color:#999; letter-spacing:0.08em; text-transform:uppercase;">Bottom of screen</div>
+      <div style="display:flex; gap:2px; background:rgba(0,0,0,0.08); border-radius:10px; padding:3px;">
+        <span style="background:#222; color:#fff; border-radius:8px; padding:7px 14px; font-size:12px; font-weight:600; white-space:nowrap;">Baroque (98)</span>
+        <span style="border-radius:8px; padding:7px 14px; font-size:12px; color:#555; white-space:nowrap;">Cubism (101)</span>
+        <span style="border-radius:8px; padding:7px 14px; font-size:12px; color:#555; white-space:nowrap;">Impressionism (77)</span>
+        <span style="border-radius:8px; padding:7px 14px; font-size:12px; color:#555; white-space:nowrap;">Surrealism (102)</span>
+        <span style="border-radius:8px; padding:7px 14px; font-size:12px; color:#555; white-space:nowrap;">Abstract (122)</span>
+      </div>
+      <div style="font-size:10px; color:#bbb;">← scrollable →</div>
+    </div>
+    <div class="card-body">
+      <h3>C — Segmented Track</h3>
+      <p>macOS/iOS-style segmented control on a frosted track. Active segment is dark. Most "scrollbar-like" of the three.</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px;">All options: centered, not full width, horizontally scrollable, clicking navigates to that cluster with animation.</p>
