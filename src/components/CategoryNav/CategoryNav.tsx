@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { Camera } from '../../core/types'
 import './CategoryNav.css'
@@ -13,9 +13,12 @@ interface CategoryNavProps {
   cameraRef: RefObject<Camera>
   groupCentersRef: RefObject<Map<string, { x: number; y: number }>>
   onSelect: (key: string) => void
+  trackStyle?: React.CSSProperties
+  buttonStyle?: React.CSSProperties
+  buttonActiveStyle?: React.CSSProperties
 }
 
-export function CategoryNav({ groups, cameraRef, groupCentersRef, onSelect }: CategoryNavProps) {
+export function CategoryNav({ groups, cameraRef, groupCentersRef, onSelect, trackStyle, buttonStyle, buttonActiveStyle }: CategoryNavProps) {
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const activeKeyRef = useRef<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -58,12 +61,13 @@ export function CategoryNav({ groups, cameraRef, groupCentersRef, onSelect }: Ca
 
   return (
     <div className="category-nav-outer">
-      <div className="category-nav-track" ref={scrollRef}>
+      <div className="category-nav-track" ref={scrollRef} style={trackStyle}>
         {groups.map(({ key, count }) => (
           <button
             key={key}
             ref={(el) => { if (el) itemRefs.current.set(key, el); else itemRefs.current.delete(key) }}
             className={`category-nav-item${activeKey === key ? ' active' : ''}`}
+            style={activeKey === key ? { ...buttonStyle, ...buttonActiveStyle } : buttonStyle}
             onClick={() => onSelect(key)}
           >
             {key} ({count})
