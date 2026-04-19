@@ -9,7 +9,6 @@ interface UniverseCanvasProps<T extends Record<string, unknown>> {
     handleItemClick: (item: UniverseItem<T>) => void
     handleItemDoubleClick: (item: UniverseItem<T>) => void
     prevTapWasClick: { current: boolean }
-    animationState: unknown
   }
   width: number
   height: number
