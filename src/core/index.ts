@@ -2,12 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { gsap } from 'gsap'
 import type { Camera, UniverseItem, RenderItem, UniverseCore } from './types'
-import { projectItem, zoomCamera, FOCAL_LENGTH } from './camera'
+import { projectItem, zoomCamera, clampCameraXY, FOCAL_LENGTH, type ContentBounds } from './camera'
 import {
   initAnimationState,
   stepAnimation,
   updateTargets,
   clusterCenters,
+  computeContentBounds,
   GROUP_Z,
   type AnimationState,
 } from './layout'
@@ -44,6 +45,8 @@ export function useUniverseCore<T extends Record<string, unknown>>(
   const [, setGroupByState] = useState<((item: UniverseItem<T>) => string) | null>(null)
 
   const animRef = useRef<AnimationState>(initAnimationState(items))
+  const canvasSizeRef = useRef<{ w: number; h: number }>({ w: window.innerWidth, h: window.innerHeight })
+  const contentBoundsRef = useRef<ContentBounds>(computeContentBounds(items, null))
   const pointerRef = useRef<PointerState | null>(null)
   const lastTapRef = useRef<number>(0)
   const prevTapWasClickRef = useRef<boolean>(false)
@@ -62,6 +65,7 @@ export function useUniverseCore<T extends Record<string, unknown>>(
     (fn: ((item: UniverseItem<T>) => string) | null) => {
       setGroupByState(() => fn)
       animRef.current = updateTargets(animRef.current, items, fn)
+      contentBoundsRef.current = computeContentBounds(items, fn)
       if (fn) {
         const keys = [...new Set(items.map(fn))]
         groupCentersRef.current = clusterCenters(keys)
@@ -79,15 +83,9 @@ export function useUniverseCore<T extends Record<string, unknown>>(
   const navigateToGroup = useCallback((key: string) => {
     const center = groupCentersRef.current.get(key)
     if (!center) return
-    const cam = cameraRef.current
-    const depth = GROUP_Z - cam.z
-    if (depth <= 0) return
-    const perspective = FOCAL_LENGTH / depth
-    const targetPanX = -(center.x - cam.x) * perspective
-    const targetPanY = -(center.y - cam.y) * perspective
     gsap.to(cameraRef.current, {
-      panX: targetPanX,
-      panY: targetPanY,
+      x: center.x,
+      y: center.y,
       duration: 0.6,
       ease: 'power3.inOut',
       overwrite: 'auto',
@@ -109,9 +107,18 @@ export function useUniverseCore<T extends Record<string, unknown>>(
     [onItemDoubleClick],
   )
 
+  function applyClamp() {
+    const { w, h } = canvasSizeRef.current
+    const clamped = clampCameraXY(cameraRef.current, contentBoundsRef.current, w, h)
+    cameraRef.current.x = clamped.x
+    cameraRef.current.y = clamped.y
+  }
+
   /** Called each rAF frame by the renderer. Steps animation and returns projected, culled, sorted items. */
   const stepAnimationFrame = useCallback(
     (width: number, height: number): RenderItem<T>[] => {
+      canvasSizeRef.current.w = width
+      canvasSizeRef.current.h = height
       animRef.current = stepAnimation(animRef.current)
       const cam = cameraRef.current
 
@@ -149,8 +156,13 @@ export function useUniverseCore<T extends Record<string, unknown>>(
       pointerRef.current.isDragging = true
     }
     if (pointerRef.current.isDragging) {
-      cameraRef.current.panX += dx
-      cameraRef.current.panY += dy
+      gsap.killTweensOf(cameraRef.current, 'x,y')
+      const depth = contentBoundsRef.current.z - cameraRef.current.z
+      if (depth > 0) {
+        cameraRef.current.x -= dx * depth / FOCAL_LENGTH
+        cameraRef.current.y -= dy * depth / FOCAL_LENGTH
+        applyClamp()
+      }
       pointerRef.current = { ...pointerRef.current, downX: e.clientX, downY: e.clientY }
     }
   }
@@ -166,7 +178,6 @@ export function useUniverseCore<T extends Record<string, unknown>>(
 
     if (e.ctrlKey) {
       // Pinch-to-zoom (trackpad pinch or Ctrl+scroll)
-      // Apply directly — continuous input fires at 60fps so tweening creates near-zero movement
       const clampedDelta = Math.sign(e.deltaY) * Math.min(Math.abs(e.deltaY), 15)
       const cursorX = e.clientX - rect.left
       const cursorY = e.clientY - rect.top
@@ -174,10 +185,14 @@ export function useUniverseCore<T extends Record<string, unknown>>(
       gsap.killTweensOf(cameraRef.current, 'x,y,z')
       Object.assign(cameraRef.current, { x: zoomed.x, y: zoomed.y, z: zoomed.z })
     } else {
-      // Two-finger trackpad pan (scroll) — apply directly, same reason
-      gsap.killTweensOf(cameraRef.current, 'panX,panY')
-      cameraRef.current.panX -= e.deltaX
-      cameraRef.current.panY -= e.deltaY
+      // Two-finger trackpad pan — convert screen delta to world space
+      gsap.killTweensOf(cameraRef.current, 'x,y')
+      const depth = contentBoundsRef.current.z - cameraRef.current.z
+      if (depth > 0) {
+        cameraRef.current.x += e.deltaX * depth / FOCAL_LENGTH
+        cameraRef.current.y += e.deltaY * depth / FOCAL_LENGTH
+        applyClamp()
+      }
     }
   }
 
@@ -203,8 +218,13 @@ export function useUniverseCore<T extends Record<string, unknown>>(
       const dx = e.touches[0].clientX - pointerRef.current.downX
       const dy = e.touches[0].clientY - pointerRef.current.downY
       pointerRef.current.isDragging = true
-      cameraRef.current.panX += dx
-      cameraRef.current.panY += dy
+      gsap.killTweensOf(cameraRef.current, 'x,y')
+      const depth = contentBoundsRef.current.z - cameraRef.current.z
+      if (depth > 0) {
+        cameraRef.current.x -= dx * depth / FOCAL_LENGTH
+        cameraRef.current.y -= dy * depth / FOCAL_LENGTH
+        applyClamp()
+      }
       pointerRef.current = { ...pointerRef.current, downX: e.touches[0].clientX, downY: e.touches[0].clientY }
     } else if (e.touches.length === 2) {
       const dx = e.touches[1].clientX - e.touches[0].clientX

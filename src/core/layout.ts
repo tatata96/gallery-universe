@@ -1,4 +1,5 @@
 import type { UniverseItem } from './types'
+import type { ContentBounds } from './camera'
 
 export interface AnimationState {
   [id: string]: {
@@ -74,6 +75,36 @@ export function computeClusterTargets<T extends Record<string, unknown>>(
   return result
 }
 
+const SCATTER_RADIUS = 1400
+const SCATTER_CENTER_Z = 1000
+
+export function computeContentBounds<T extends Record<string, unknown>>(
+  items: UniverseItem<T>[],
+  groupBy: ((item: UniverseItem<T>) => string) | null,
+): ContentBounds {
+  if (!groupBy) {
+    return { xMin: -SCATTER_RADIUS, xMax: SCATTER_RADIUS, yMin: -SCATTER_RADIUS, yMax: SCATTER_RADIUS, z: SCATTER_CENTER_Z }
+  }
+
+  const byKey = new Map<string, number>()
+  for (const item of items) {
+    const key = groupBy(item)
+    byKey.set(key, (byKey.get(key) ?? 0) + 1)
+  }
+  const n = byKey.size
+  const xHalfSpan = (n - 1) / 2 * GROUP_SPACING
+  const maxCount = Math.max(...byKey.values())
+  const clusterRadius = CELL_SIZE * Math.sqrt(maxCount)
+
+  return {
+    xMin: -xHalfSpan - clusterRadius,
+    xMax: xHalfSpan + clusterRadius,
+    yMin: -clusterRadius,
+    yMax: clusterRadius,
+    z: GROUP_Z,
+  }
+}
+
 /**
  * Generate `count` UniverseItems arranged in a uniform sphere distribution.
  * The caller only supplies the per-item data; positions and ids are handled here.
@@ -83,8 +114,8 @@ export function createItems<T extends Record<string, unknown>>(
   getData: (index: number) => T,
   options?: { radius?: number; centerZ?: number },
 ): import('./types').UniverseItem<T>[] {
-  const radius = options?.radius ?? 1400
-  const centerZ = options?.centerZ ?? 1000
+  const radius = options?.radius ?? SCATTER_RADIUS
+  const centerZ = options?.centerZ ?? SCATTER_CENTER_Z
   return Array.from({ length: count }, (_, i) => {
     const u1 = ((i * 2654435761) % 1000) / 1000
     const u2 = ((i * 1140671485) % 1000) / 1000
