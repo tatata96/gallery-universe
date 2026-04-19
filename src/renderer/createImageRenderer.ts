@@ -24,7 +24,7 @@ export function createImageRenderer<T extends Record<string, unknown>>(
     const half = screenSize / 2
     const img = loadImage(item.data[imageUrlKey] as string)
 
-    if (img.complete) {
+    if (img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, screenX - half, screenY - half, screenSize, screenSize)
     } else {
       ctx.fillStyle = placeholderColor
