@@ -66,6 +66,7 @@ export default function App() {
         width={window.innerWidth}
         height={window.innerHeight}
         renderItem={renderItem}
+        clusterLabelPosition='down'
         groupBy={activeGroupBy ? (item) => item.data.movement : null}
       />
 

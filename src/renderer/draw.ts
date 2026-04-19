@@ -7,13 +7,14 @@ interface DrawFrameOptions<T extends Record<string, unknown>> {
   renderItems: RenderItem<T>[]
   selectedId: string | null
   groupBy: ((item: RenderItem<T>) => string) | null
+  clusterLabelPosition?: 'up' | 'down' | 'center'
   renderItem: (ctx: CanvasRenderingContext2D, item: RenderItem<T>, isSelected: boolean) => void
 }
 
 export function drawFrame<T extends Record<string, unknown>>(
   options: DrawFrameOptions<T>,
 ): void {
-  const { ctx, width, height, renderItems, selectedId, groupBy, renderItem } = options
+  const { ctx, width, height, renderItems, selectedId, groupBy, clusterLabelPosition = 'up', renderItem } = options
 
   ctx.clearRect(0, 0, width, height)
 
@@ -38,14 +39,16 @@ export function drawFrame<T extends Record<string, unknown>>(
       c.count++
     }
 
-    ctx.font = 'bold 14px sans-serif'
-    ctx.fillStyle = 'rgba(0,0,0,0.6)'
+    ctx.font = 'bold 16px '
+    ctx.fillStyle = 'rgba(0,0,0,0.2)'
     ctx.textAlign = 'center'
+
+    const labelYOffset = clusterLabelPosition === 'up' ? -240 : clusterLabelPosition === 'down' ? 240 : 0
 
     for (const [key, center] of centers) {
       if (seen.has(key)) continue
       seen.add(key)
-      ctx.fillText(key, center.x / center.count, center.y / center.count - 40)
+      ctx.fillText(key, center.x / center.count, center.y / center.count + labelYOffset)
     }
   }
 }

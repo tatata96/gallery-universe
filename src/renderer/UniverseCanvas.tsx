@@ -14,6 +14,7 @@ interface UniverseCanvasProps<T extends Record<string, unknown>> {
   height: number
   renderItem: (ctx: CanvasRenderingContext2D, item: RenderItem<T>, isSelected: boolean) => void
   groupBy?: ((item: RenderItem<T>) => string) | null
+  clusterLabelPosition?: 'up' | 'down' | 'center'
 }
 
 export function UniverseCanvas<T extends Record<string, unknown>>({
@@ -22,6 +23,7 @@ export function UniverseCanvas<T extends Record<string, unknown>>({
   height,
   renderItem,
   groupBy = null,
+  clusterLabelPosition = 'up',
 }: UniverseCanvasProps<T>) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef<number>(0)
@@ -48,6 +50,7 @@ export function UniverseCanvas<T extends Record<string, unknown>>({
         renderItems: items,
         selectedId: core.selectedId,
         groupBy: groupBy as ((item: RenderItem<Record<string, unknown>>) => string) | null,
+        clusterLabelPosition,
         renderItem: renderItem as (ctx: CanvasRenderingContext2D, item: RenderItem<Record<string, unknown>>, isSelected: boolean) => void,
       })
 
