@@ -68,7 +68,9 @@ export function useUniverseCore<T extends Record<string, unknown>>(
       contentBoundsRef.current = computeContentBounds(items, fn)
       if (fn) {
         const keys = [...new Set(items.map(fn))]
-        groupCentersRef.current = clusterCenters(keys)
+        const sizes = new Map<string, number>()
+        for (const item of items) sizes.set(fn(item), (sizes.get(fn(item)) ?? 0) + 1)
+        groupCentersRef.current = clusterCenters(keys, sizes)
         gsap.killTweensOf(cameraRef.current)
         Object.assign(cameraRef.current, { x: 0, y: 0, z: -2500, panX: 0, panY: 0 })
       } else {

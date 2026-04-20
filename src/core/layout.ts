@@ -10,25 +10,41 @@ export interface AnimationState {
 }
 
 export const GROUP_Z = 1000
-export const GROUP_SPACING = 1500
+const CLUSTER_PADDING = 200
 const CELL_SIZE = 70
 const LERP_FACTOR = 0.15 // per frame: 15% toward target (~38 frames to converge to within 0.5 units)
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5)) // ≈ 137.5° — Fibonacci sunflower angle
 
+function clusterRadius(itemCount: number): number {
+  return CELL_SIZE * Math.sqrt(itemCount)
+}
+
 /**
  * Compute cluster center x positions along the x axis, sorted alphabetically.
+ * Spacing is dynamic: adjacent clusters are separated by the sum of their radii plus padding.
  * Exported so core/index.ts can use the same formula for navigateToGroup.
  */
-export function clusterCenters(groupKeys: string[]): Map<string, { x: number; y: number }> {
+export function clusterCenters(
+  groupKeys: string[],
+  groupSizes?: Map<string, number>,
+): Map<string, { x: number; y: number }> {
   const sorted = [...groupKeys].sort()
-  const count = sorted.length
   const centers = new Map<string, { x: number; y: number }>()
+
+  if (sorted.length === 0) return centers
+
+  const radii = sorted.map((key) => clusterRadius(groupSizes?.get(key) ?? 1))
+
+  const positions: number[] = [0]
+  for (let i = 1; i < sorted.length; i++) {
+    positions.push(positions[i - 1] + radii[i - 1] + radii[i] + CLUSTER_PADDING)
+  }
+
+  const mid = (positions[0] + positions[positions.length - 1]) / 2
   sorted.forEach((key, i) => {
-    centers.set(key, {
-      x: (i - (count - 1) / 2) * GROUP_SPACING,
-      y: 0,
-    })
+    centers.set(key, { x: positions[i] - mid, y: 0 })
   })
+
   return centers
 }
 
@@ -47,7 +63,11 @@ export function computeClusterTargets<T extends Record<string, unknown>>(
 
   const itemKeys = items.map((item) => ({ item, key: groupBy(item) }))
   const groupKeys = [...new Set(itemKeys.map((e) => e.key))]
-  const centers = clusterCenters(groupKeys)
+
+  const groupSizes = new Map<string, number>()
+  for (const { key } of itemKeys) groupSizes.set(key, (groupSizes.get(key) ?? 0) + 1)
+
+  const centers = clusterCenters(groupKeys, groupSizes)
 
   // Group items by key, sorted by id for determinism
   const byKey = new Map<string, UniverseItem<T>[]>()
@@ -91,16 +111,18 @@ export function computeContentBounds<T extends Record<string, unknown>>(
     const key = groupBy(item)
     byKey.set(key, (byKey.get(key) ?? 0) + 1)
   }
-  const n = byKey.size
-  const xHalfSpan = (n - 1) / 2 * GROUP_SPACING
-  const maxCount = Math.max(...byKey.values())
-  const clusterRadius = CELL_SIZE * Math.sqrt(maxCount)
+  const centers = clusterCenters([...byKey.keys()], byKey)
+  const xs = [...centers.entries()].map(([key, c]) => {
+    const r = clusterRadius(byKey.get(key)!)
+    return { xMin: c.x - r, xMax: c.x + r, r }
+  })
+  const maxR = Math.max(...xs.map((e) => e.r))
 
   return {
-    xMin: -xHalfSpan - clusterRadius,
-    xMax: xHalfSpan + clusterRadius,
-    yMin: -clusterRadius,
-    yMax: clusterRadius,
+    xMin: Math.min(...xs.map((e) => e.xMin)),
+    xMax: Math.max(...xs.map((e) => e.xMax)),
+    yMin: -maxR,
+    yMax: maxR,
     z: GROUP_Z,
   }
 }

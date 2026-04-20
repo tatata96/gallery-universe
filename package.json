@@ -1,6 +1,6 @@
 {
   "name": "gallery-universe",
-  "version": "0.1.5",
+  "version": "0.1.7",
   "type": "module",
   "description": "A zoomable, clusterable 3D canvas for displaying large collections of items",
   "main": "dist/index.cjs",
