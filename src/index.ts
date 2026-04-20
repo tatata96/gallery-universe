@@ -1,4 +1,6 @@
 export { useUniverseCore, createItems } from './core'
 export { UniverseCanvas, loadImage, createImageRenderer } from './renderer'
+export { CategoryNav } from './components/CategoryNav/CategoryNav'
 export type { UniverseItem, RenderItem, UniverseCore, Camera } from './core'
 export type { ImageRendererStyle } from './renderer'
+export type { CategoryNavProps } from './components/CategoryNav/CategoryNav'
