@@ -5,9 +5,11 @@ A zoomable, clusterable 3D canvas for displaying large collections of items. Nav
 ## Features
 
 - Perspective 3D canvas — items exist at real world coordinates with depth-based projection
-- Pinch-to-zoom and two-finger pan (trackpad and touch)
+- Pinch-to-zoom and two-finger pan (trackpad and touch) with content boundary clamping
 - Cluster mode — group items by any property with animated transitions
 - Navigate between clusters with smooth camera pans
+- `CategoryNav` component — scrollable category bar that auto-highlights the nearest cluster as you pan
+- Configurable cluster label position (`up`, `down`, `center`)
 - Custom item rendering — bring your own draw function
 - Built-in image renderer with loading states and selection highlight
 - Click and double-click hit detection
@@ -74,26 +76,67 @@ export default function App() {
         </button>
       </div>
 
-      {/* Jump to a cluster by name */}
-      <div style={{ position: 'fixed', bottom: 16, left: 16, zIndex: 10, display: 'flex', gap: 8 }}>
-        {['Artist 0', 'Artist 1', 'Artist 2'].map((artist) => (
-          <button key={artist} onClick={() => core.navigateToGroup(artist)}>
-            {artist}
-          </button>
-        ))}
-      </div>
-
       <UniverseCanvas
         core={core}
         width={window.innerWidth}
         height={window.innerHeight}
         renderItem={renderItem}
         groupBy={(item) => item.data.artist}
+        clusterLabelPosition="up"
       />
     </>
   )
 }
 ```
+
+## CategoryNav
+
+`CategoryNav` renders a scrollable pill bar that auto-highlights the cluster nearest to the camera as you pan. Clicking a pill navigates to that cluster.
+
+```tsx
+import { CategoryNav } from 'gallery-universe'
+
+const groupBy = (item) => item.data.artist
+const groups = [...new Set(items.map(groupBy))].map((key) => ({
+  key,
+  count: items.filter((i) => groupBy(i) === key).length,
+}))
+
+export default function App() {
+  const core = useUniverseCore<Track>({ items })
+
+  return (
+    <>
+      <CategoryNav
+        groups={groups}
+        cameraRef={core.cameraRef}
+        groupCentersRef={core.groupCentersRef}
+        onSelect={(key) => core.navigateToGroup(key)}
+      />
+
+      <UniverseCanvas
+        core={core}
+        width={window.innerWidth}
+        height={window.innerHeight}
+        renderItem={renderItem}
+        groupBy={groupBy}
+      />
+    </>
+  )
+}
+```
+
+### `CategoryNav` props
+
+| Prop | Type | Description |
+|---|---|---|
+| `groups` | `{ key: string; count: number }[]` | List of groups to render as pills. |
+| `cameraRef` | `RefObject<Camera>` | From `core.cameraRef`. Used to track camera position. |
+| `groupCentersRef` | `RefObject<Map<string, { x: number; y: number }>>` | From `core.groupCentersRef`. Maps group keys to world positions. |
+| `onSelect` | `(key: string) => void` | Called when a pill is clicked — typically `core.navigateToGroup`. |
+| `trackStyle` | `React.CSSProperties` | Optional styles for the scrollable track container. |
+| `buttonStyle` | `React.CSSProperties` | Optional styles applied to every pill button. |
+| `buttonActiveStyle` | `React.CSSProperties` | Optional extra styles applied to the active pill (merged with `buttonStyle`). |
 
 ## Custom item renderer
 
@@ -131,12 +174,14 @@ The main hook. Returns a `core` object to pass to `UniverseCanvas`.
 | `onItemClick` | `(item) => void` | Fired on click or tap. |
 | `onItemDoubleClick` | `(item) => void` | Fired on double-click or double-tap. |
 
-**core methods:**
+**core object:**
 
-| Method | Description |
+| Property / Method | Description |
 |---|---|
 | `setGroupBy(fn)` | Group items by a string key. Pass `null` to return to scatter. |
 | `navigateToGroup(key)` | Smooth camera pan to the named cluster. |
+| `cameraRef` | `RefObject<Camera>` — live camera state. Pass to `CategoryNav`. |
+| `groupCentersRef` | `RefObject<Map<string, { x: number; y: number }>>` — world-space center per group. Pass to `CategoryNav`. |
 
 ### `createItems(count, getData)`
 
@@ -148,10 +193,11 @@ Returns a canvas draw function that renders images from `item.data[urlKey]`. Sho
 
 ### `UniverseCanvas`
 
-| Prop | Type | Description |
-|---|---|---|
-| `core` | `UniverseCoreExtended<T>` | From `useUniverseCore`. |
-| `width` | `number` | Canvas width in pixels. |
-| `height` | `number` | Canvas height in pixels. |
-| `renderItem` | `(ctx, item, isSelected) => void` | Draw function called per visible item per frame. |
-| `groupBy` | `(item) => string \| null` | Used to render cluster labels on canvas. Should match the fn passed to `setGroupBy`. |
+| Prop | Type | Default | Description |
+|---|---|---|---|
+| `core` | `UniverseCoreExtended<T>` | — | From `useUniverseCore`. |
+| `width` | `number` | — | Canvas width in pixels. |
+| `height` | `number` | — | Canvas height in pixels. |
+| `renderItem` | `(ctx, item, isSelected) => void` | — | Draw function called per visible item per frame. |
+| `groupBy` | `(item) => string \| null` | `null` | Used to render cluster labels on canvas. Should match the fn passed to `setGroupBy`. |
+| `clusterLabelPosition` | `'up' \| 'down' \| 'center'` | `'up'` | Vertical position of cluster labels relative to the cluster center. |
